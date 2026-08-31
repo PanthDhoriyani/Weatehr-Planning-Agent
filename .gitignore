@@ -15,6 +15,12 @@ __pycache__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Presentation files (kept local)
+*.pptx
+~$*
+generate_ppt.py
+PRESENTATION_GUIDE.md
+
 # IDE & OS files
 .vscode/
 .idea/
