@@ -21,6 +21,12 @@ __pycache__/
 generate_ppt.py
 PRESENTATION_GUIDE.md
 
+# Runtime memory file (user-specific, auto-generated)
+memory.json
+
+# Large PDF slides (kept local only)
+*.pdf
+
 # IDE & OS files
 .vscode/
 .idea/
