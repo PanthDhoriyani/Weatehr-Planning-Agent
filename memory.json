@@ -1,0 +1,31 @@
+{
+  "farm_profile": {
+    "location": "Pune",
+    "crop": "Cotton",
+    "growth_stage": "Flowering / Boll Formation",
+    "soil_type": "Black Cotton Soil (Vertisol)",
+    "acreage": 5.0
+  },
+  "advisories": [
+    {
+      "timestamp": "2026-11-20 10:15",
+      "location": "Pune",
+      "crop": "Cotton",
+      "agent": "irrigation_sentinel",
+      "query": "Should I irrigate my cotton field today?",
+      "advice_summary": "PAUSE PUMPS. Soil moisture is adequate (0.24 m³/m³) and 12mm rain is forecasted. Skipping irrigation will conserve ~4,500 liters of water.",
+      "threat_level": "LOW"
+    },
+    {
+      "timestamp": "2026-11-21 14:30",
+      "location": "Pune",
+      "crop": "Cotton",
+      "agent": "pest_disease_forecaster",
+      "query": "Will the high humidity cause fungal leaf spot on cotton?",
+      "advice_summary": "MODERATE THREAT. Relative humidity exceeds 82% with 27°C temperature, creating prime conditions for Alternaria leaf spot. Apply preventative copper oxychloride or bio-fungicide before rain arrives.",
+      "threat_level": "MODERATE"
+    }
+  ],
+  "total_advisories": 2,
+  "last_active": "2026-11-21 14:30"
+}

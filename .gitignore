@@ -9,20 +9,14 @@ __pycache__/
 *$py.class
 *.pyo
 
-# Environment variables & secrets
+# Environment variables & secrets (CRITICAL: keep private)
 .env
 
 # Streamlit
 .streamlit/secrets.toml
 
-# Presentation files (kept local)
-*.pptx
+# Temporary office lock files
 ~$*
-generate_ppt.py
-PRESENTATION_GUIDE.md
-
-# Runtime memory file (user-specific, auto-generated)
-memory.json
 
 # Large PDF slides (kept local only)
 *.pdf
