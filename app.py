@@ -8,7 +8,19 @@ Interactive Streamlit UI featuring:
 - Persistent Long-Term Farm Memory Panel
 """
 
+import os
+from dotenv import load_dotenv
 import streamlit as st
+
+load_dotenv()
+
+# Bridge Streamlit Cloud Secrets to os.environ
+try:
+    if "GROQ_API_KEY" in st.secrets:
+        os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+except Exception:
+    pass
+
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 from agent.graph import build_graph
@@ -216,6 +228,23 @@ if "agent_app" not in st.session_state:
 # SIDEBAR: Farm Profile + Memory + Multi-Agent Roster
 # ---------------------------------------------------------------
 with st.sidebar:
+    # Free deployment API key fallback (if not set in st.secrets or .env)
+    current_key = os.getenv("GROQ_API_KEY", "")
+    if not current_key or current_key == "gsk_placeholder":
+        st.warning("⚠️ **Groq API Key Required**")
+        api_key_input = st.text_input("Enter Groq API Key:", type="password", placeholder="gsk_...", key="groq_key_input")
+        if api_key_input:
+            os.environ["GROQ_API_KEY"] = api_key_input.strip()
+            from agent.nodes import llm
+            from agent.sub_agents import _llm
+            llm.api_key = api_key_input.strip()
+            _llm.api_key = api_key_input.strip()
+            st.session_state.agent_app = build_graph()
+            st.success("✅ API Key connected!")
+            st.rerun()
+        st.caption("Get a free key in 30 seconds at [console.groq.com](https://console.groq.com)")
+        st.markdown("---")
+
     st.markdown("### 🌾 Active Farm Profile")
     st.caption("Unit 3 Extension — Persistent Farm Context")
 

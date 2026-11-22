@@ -17,10 +17,10 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 load_dotenv()
 
-# Shared high-speed LLM on Groq
+# Shared high-speed LLM on Groq (fallback placeholder ensures clean import on cloud platforms)
 _llm = ChatGroq(
     model="openai/gpt-oss-120b",
-    api_key=os.getenv("GROQ_API_KEY"),
+    api_key=os.getenv("GROQ_API_KEY") or "gsk_placeholder",
     temperature=0.25
 )
 

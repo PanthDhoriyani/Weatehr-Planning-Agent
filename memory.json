@@ -2,30 +2,21 @@
   "farm_profile": {
     "location": "Pune",
     "crop": "Cotton",
-    "growth_stage": "Flowering / Boll Formation",
+    "growth_stage": "Sowing & Germination",
     "soil_type": "Black Cotton Soil (Vertisol)",
     "acreage": 5.0
   },
   "advisories": [
     {
-      "timestamp": "2026-11-20 10:15",
+      "timestamp": "2026-11-22 18:46",
       "location": "Pune",
       "crop": "Cotton",
       "agent": "irrigation_sentinel",
-      "query": "Should I irrigate my cotton field today?",
-      "advice_summary": "PAUSE PUMPS. Soil moisture is adequate (0.24 m³/m³) and 12mm rain is forecasted. Skipping irrigation will conserve ~4,500 liters of water.",
-      "threat_level": "LOW"
-    },
-    {
-      "timestamp": "2026-11-21 14:30",
-      "location": "Pune",
-      "crop": "Cotton",
-      "agent": "pest_disease_forecaster",
-      "query": "Will the high humidity cause fungal leaf spot on cotton?",
-      "advice_summary": "MODERATE THREAT. Relative humidity exceeds 82% with 27°C temperature, creating prime conditions for Alternaria leaf spot. Apply preventative copper oxychloride or bio-fungicide before rain arrives.",
+      "query": "should I run my borewell pump today?",
+      "advice_summary": "**IRRIGATE TODAY** – Top‑soil moisture is 0.152 m³/m³ (below the 0.18 m³/m³ deficit trigger), no rain is forecast, and today’s ET₀ is 3.88 mm day⁻¹, creating a clear water shortfall. To bring the prof",
       "threat_level": "MODERATE"
     }
   ],
-  "total_advisories": 2,
-  "last_active": "2026-11-21 14:30"
+  "total_advisories": 1,
+  "last_active": "2026-11-22 18:46"
 }
