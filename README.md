@@ -1,22 +1,24 @@
-# Weather Planning Agent 🌧️
+# 🌾 AgriShield AI — Autonomous Climate & Precision Agriculture Sentinel
 
-An autonomous AI agent built with **LangGraph + LangChain + Groq** that answers weather questions like:
-> *"Should I carry an umbrella tomorrow in Pune?"*  
-> *"What should I wear in Delhi tomorrow?"*  
-> *"Is it a good day to travel to Goa?"*
+An enterprise-grade Agentic AI system built with **LangGraph + LangChain + Groq + Open-Meteo Agricultural API** that provides real-time, autonomous agronomic decisions:
+> *"Should I run my borewell pump today, or will tomorrow's rain save groundwater and electricity?"*  
+> *"Will high atmospheric humidity cause fungal blight on my tomatoes?"*  
+> *"Is the wind speed safe to spray pesticide without chemical drift?"*  
+> *"Can I safely harvest my wheat crop over the next 3 days?"*
 
 ---
 
-## 🆕 Jury Extensions (Unit 3 + Unit 4)
+## 🏛️ Final Jury Architectural Highlights
 
 | Extension | Concept | What It Does |
 |---|---|---|
-| **Unit 3** | Memory (Short-Term + Long-Term) | Remembers past cities & recommendations across sessions via `memory.json` |
-| **Unit 4** | Multi-Agent System | Supervisor routes queries to 3 specialist sub-agents |
+| **Unit 3** | **Long-Term Farm Profile Memory** | Persists farm state (Crop, Growth Stage, Soil Type, Location) & advisory audit log in `memory.json`. Injects farm context into reasoning prompts across sessions. |
+| **Unit 4** | **Multi-Agent Specialist System** | Hierarchical Supervisor node routes queries to 3 domain specialists (`irrigation_sentinel`, `pest_disease_forecaster`, `harvest_spray_advisor`). |
+| **Final Innovation** | **Reflection / Evaluator-Optimizer Loop** | A dedicated **Critic Node** audits sub-agent draft advice against environmental thresholds, assigns a **Crop Threat Index (LOW / MODERATE / SEVERE)**, and ensures safety guardrails before answering. |
 
 ---
 
-## How to Run
+## 🚀 How to Run
 
 ### 1. Activate Virtual Environment
 ```bash
@@ -24,131 +26,129 @@ An autonomous AI agent built with **LangGraph + LangChain + Groq** that answers 
 venv\Scripts\activate
 ```
 
-### 2. Install dependencies (if setting up fresh)
+### 2. Verify Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Add your Groq API key
-- Open the `.env` file
-- Replace `your_groq_key_here` with your actual key
-- Get a free key at: https://console.groq.com/keys
+### 3. Configure API Key
+Ensure `.env` contains your Groq API key:
+```env
+GROQ_API_KEY=your_groq_key_here
+```
 
-### 4. Run the Streamlit web app (recommended for jury demo)
+### 4. Run the Streamlit Dashboard (Recommended for Jury Demo)
 ```bash
 python -m streamlit run app.py
 ```
 
-### 5. OR run in terminal (CLI mode)
+### 5. Run in Terminal (CLI Mode)
 ```bash
 python main.py
 ```
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 ```
 agentic_ai_jury_1/
-├── venv/                → Local Virtual Environment
 ├── agent/
-│   ├── state.py         → AgentState (messages + active_agent + memory fields)
-│   ├── tools.py         → Weather tool (Open-Meteo API)
-│   ├── nodes.py         → Supervisor + LLM node + Sub-Agent Dispatch
-│   ├── graph.py         → LangGraph multi-agent graph
-│   ├── memory.py        → [NEW] Long-Term Memory (reads/writes memory.json)
-│   └── sub_agents.py    → [NEW] 3 Specialist Sub-Agents
-├── memory.json          → [AUTO-CREATED] Persistent long-term memory store
-├── app.py               → Streamlit UI with Memory Panel + Agent Activity
+│   ├── state.py         → AgentState (messages, active_agent, farm_profile, threat_level)
+│   ├── tools.py         → Open-Meteo Agro API (ET₀, soil moisture, wind drift, humidity)
+│   ├── nodes.py         → Supervisor + LLM Node + Sub-Agent Dispatch + Reflection Critic
+│   ├── graph.py         → LangGraph Cyclic Graph with Evaluator-Optimizer
+│   ├── memory.py        → Persistent Farm Profile & Advisory Memory (memory.json)
+│   └── sub_agents.py    → 3 Domain Specialists + 1 Safety Critic Agent
+├── memory.json          → Persistent Farm Memory & Advisory History
+├── app.py               → Streamlit Dashboard with Farm Profile & Live Telemetry Inspector
 ├── main.py              → CLI runner for terminal demo
+├── PRESENTATION_GUIDE.md→ Slide-by-slide jury script with Viva Q&A
 ├── requirements.txt
-└── .env                 → API keys
+└── .env
 ```
 
 ---
 
-## How the Agent Works
-
-### Original Flow (Base)
-1. **User asks a weather question** (e.g. *"Will it rain in Pune tomorrow?"*)
-2. **LLM reads the question** and determines if it needs live weather data
-3. **Agent invokes `get_weather_forecast` tool** → queries Open-Meteo API
-4. **LLM reasons over the data** → delivers a clear recommendation
-5. **Guardrails:** Off-topic questions (math, trivia) are politely rejected
-
-### Extended Flow (Jury Extensions)
+## 🔄 Multi-Agent Workflow
 
 ```
-User Query
-   │
-   ▼
-[SUPERVISOR NODE]  ←── Unit 4: decides which specialist handles this
-   │
-   ├──► 🌦️ Weather Agent     → "Will it rain?"
-   ├──► 👗 Outfit Advisor     → "What to wear?"
-   └──► ✈️ Travel Planner     → "Good day to travel?"
-             │
-             ▼
-       [LLM Node]  ←── Unit 3: Long-Term Memory injected into system prompt
-             │
-             ▼
-       [Tool Node] → get_weather_forecast (Open-Meteo API)
-             │
-             ▼
-       [Sub-Agent Dispatch] → specialist gives focused answer
-             │
-             ▼
-       [Memory Save]  ←── Unit 3: city + recommendation saved to memory.json
+                        [Farmer Query / Farm Profile]
+                                     │
+                                     ▼
+                         ┌───────────────────────┐
+                         │    SUPERVISOR NODE    │  (Classifies farmer intent)
+                         └───────────┬───────────┘
+                                     │
+                 ┌───────────────────┼───────────────────┐
+                 ▼                   ▼                   ▼
+       [💧 Irrigation]      [🐛 Pest/Disease]     [🚜 Harvest/Spray]
+                 │                   │                   │
+                 └───────────────────┼───────────────────┘
+                                     ▼
+                         ┌───────────────────────┐
+                         │   LLM REASONING NODE  │  (Injects Farm Profile Memory)
+                         └───────────┬───────────┘
+                                     │
+                                     ▼ (Invokes tool)
+                         ┌───────────────────────┐
+                         │    AGRI-TOOL NODE     │  (Open-Meteo Agro Telemetry)
+                         │ • Soil moisture (0-7cm)│
+                         │ • ET₀ Evapotranspiration
+                         │ • Wind speed & humidity
+                         └───────────┬───────────┘
+                                     │
+                                     ▼
+                         ┌───────────────────────┐
+                         │  SUB-AGENT DISPATCH   │  (Generates domain-specific advice)
+                         └───────────┬───────────┘
+                                     │
+                                     ▼
+                         ┌───────────────────────┐
+                         │  SAFETY RISK CRITIC   │  (Evaluator-Optimizer: Audits thresholds)
+                         │   [REFLECTION NODE]   │  (Computes Crop Threat Index: LOW/MOD/SEV)
+                         └───────────┬───────────┘
+                                     │
+                                     ▼
+                         ┌───────────────────────┐
+                         │      MEMORY SAVE      │  (Persists to memory.json)
+                         └───────────┬───────────┘
+                                     │
+                                     ▼
+                                   [END]
 ```
 
 ---
 
-## Unit 3 — Memory System
+## 🌾 The 4 Sub-Agents
 
-| Memory Type | How | Where Visible |
+| Sub-Agent | Real-World Agronomic Rule | Trigger Keywords |
 |---|---|---|
-| **Short-Term** | LangGraph message list (`operator.add`) | Agent reasoning steps |
-| **Long-Term** | `memory.py` → `memory.json` on disk | 📚 Sidebar Memory Panel |
-
-- Survives app restarts
-- Injects "User previously asked about Pune" into LLM prompt
-- Shows query count, last date, last recommendation per city
-- Has a **Clear Memory** button in the sidebar
+| 💧 **Irrigation Sentinel** | Evaluates **Soil Moisture** and **Evapotranspiration (ET₀)**. Pauses pumps if rain is imminent, saving groundwater & power. | water, irrigate, pump, drought, borewell, soil moisture |
+| 🐛 **Pest & Disease Forecaster** | High humidity (>80%) + warm temp (22-30°C) triggers fungal spore germination. Recommends preventative sprays *before* rains. | pest, fungus, blight, rust, mildew, whitefly, worms |
+| 🚜 **Harvest & Spray Advisor** | Wind > 15 km/h causes chemical drift; rain within 6h causes wash-off. Requires 3 dry days for grain harvesting. | spray, pesticide, fertilizer, wind drift, harvest, cutting |
+| 🛡️ **Safety & Risk Critic** | Evaluates the draft advice, verifies environmental safety thresholds, and assigns the **Crop Threat Index**. | *Runs automatically via LangGraph reflection* |
 
 ---
 
-## Unit 4 — Multi-Agent System
-
-| Sub-Agent | Trigger Keywords | Specialty |
-|---|---|---|
-| 🌦️ **Weather Agent** | rain, umbrella, forecast, weather | Plain weather forecasts |
-| 👗 **Outfit Advisor** | wear, clothes, dress, outfit | Clothing recommendations |
-| ✈️ **Travel Planner** | travel, trip, drive, go to, visit | Travel suitability |
-
-The **Supervisor Node** classifies every query and activates the right sub-agent.  
-The UI shows a color-coded badge on each response showing which agent handled it.
-
----
-
-## Demo Questions for Jury
+## 🎯 Demo Questions for Jury
 
 ```
-🌦️  "Will it rain in Pune tomorrow?"
-🌦️  "Should I carry an umbrella in Mumbai?"
-👗  "What should I wear tomorrow in Delhi?"
-👗  "What clothes for rainy weather in Chennai?"
-✈️  "Is it a good day to travel to Goa?"
-✈️  "Can I go to Manali this weekend?"
+💧  "Should I run my irrigation pumps for cotton today in Pune?"
+💧  "What is the soil moisture and evapotranspiration status?"
+🐛  "High humidity is reported — will my tomatoes get early blight disease?"
+🐛  "Should I apply fungicide before the rain arrives tomorrow?"
+🚜  "Can I spray pesticide tomorrow morning in Nashik?"
+🚜  "Is it safe to harvest my wheat crop over the next 3 days?"
 ```
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Component | Technology |
 |---|---|
-| Agent Framework | LangGraph (StateGraph) |
-| LLM | Groq Cloud — `openai/gpt-oss-120b` |
-| Weather API | Open-Meteo (free, no key needed) |
-| Memory Store | JSON file (built-in, no DB needed) |
-| UI | Streamlit |
-| Language | Python 3.10+ |
+| **Agent Framework** | LangGraph (StateGraph with Evaluator-Optimizer loop) |
+| **LLM Provider** | Groq Cloud (`openai/gpt-oss-120b`) |
+| **Agricultural Telemetry** | Open-Meteo Agro & Soil API (Free, no key required) |
+| **State Persistence** | `memory.json` (Dual-tier: Farm Profile + Advisory Log) |
+| **User Interface** | Streamlit Dashboard with Telemetry Inspector |

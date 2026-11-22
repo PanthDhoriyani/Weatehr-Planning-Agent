@@ -1,197 +1,229 @@
 """
-nodes.py — LLM nodes, Supervisor, and Tool Node
--------------------------------------------------
-Original:  llm_node + tool_node
-Added:
-  - Memory injection into system prompt       (Unit 3)
-  - supervisor_node to route between agents   (Unit 4)
-  - sub-agent invocation after tool call      (Unit 4)
+nodes.py — AgriShield AI: Supervisor, LLM Brain, Dispatcher & Reflection Critic
+-------------------------------------------------------------------------------
+Nodes in the LangGraph graph:
+1. supervisor_node         → Classifies farmer intent into domain sub-agent
+2. llm_node                → Injects Farm Profile memory & binds agricultural tools
+3. tool_node               → Executes Open-Meteo Agricultural API tool
+4. sub_agent_dispatch_node → Invokes specialized agronomic sub-agent
+5. critic_node             → Reflection/Evaluator node auditing advice & assigning threat index
 """
 
 import os
 import re
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 
-from .tools import get_weather_forecast
+from .tools import get_agricultural_weather_data
 from .state import AgentState
-from .memory import get_memory_context, remember_city
-from .sub_agents import SUB_AGENTS, SUB_AGENT_LABELS
+from .memory import get_memory_context, get_farm_profile, remember_agri_advisory
+from .sub_agents import SUB_AGENTS, safety_risk_critic
 
 load_dotenv()
 
-# ---------------------------------------------------------------
-# BASE SYSTEM PROMPT — weather guardrails (unchanged from original)
-# ---------------------------------------------------------------
+# =====================================================================
+# AGRI-SHIELD BASE SYSTEM PROMPT
+# =====================================================================
 BASE_SYSTEM_PROMPT = """\
-You are a helpful Weather Assistant. Your ONLY job is to answer questions related to weather.
+You are AgriShield AI — an Autonomous Climate & Precision Agriculture Sentinel.
+Your mission is to help farmers make data-driven agronomic decisions regarding:
+- Precision Irrigation & Soil Water Balance (Evapotranspiration ET₀, soil moisture)
+- Fungal Disease & Pest Outbreak Prevention (Humidity, temperature, leaf wetness)
+- Field Operations, Chemical Spraying Windows & Harvest Timing (Wind drift, rain wash-off)
 
-Topics you CAN answer:
-- Rain, drizzle, showers, thunderstorms, snowfall
-- Whether to carry an umbrella, raincoat, jacket, or similar
-- Temperature, humidity, wind, fog, clouds
-- Weather forecasts for any city
-- General advice based on weather (like "should I go out?", "what to wear?")
+Topics to REJECT:
+- Questions completely unrelated to agriculture, farming, crops, soil, water, pesticides, or rural meteorology
+  (e.g., coding, movies, politics, algebra).
 
-Topics you MUST REJECT (politely):
-- Anything not related to weather at all
-- Examples of stuff to reject: maths problems, coding help, movie suggestions,
-  history questions, sports scores, cooking tips, etc.
+When you REJECT an off-topic question, say:
+"🌱 AgriShield AI is dedicated exclusively to precision agriculture and farm advisory. Please ask an agronomic or crop-weather question!"
 
-When you REJECT a question, say exactly:
-"Sorry, I can only answer weather-related questions! 🌤️ Please ask me something about the weather."
-
-When you ANSWER a weather question:
-1. Use the get_weather_forecast tool to get real weather data
-2. Give a clear YES or NO recommendation (e.g., "Yes, carry an umbrella!" or "No, skies are clear!")
-3. Explain why, based on the data
-4. Keep it friendly and short
+When you answer an agronomic question:
+1. Always invoke the `get_agricultural_weather_data` tool with the farm location and target crop.
+2. If the user does not specify a location, use their active Farm Profile location.
+3. If the user does not specify a crop, use their active Farm Profile crop.
 """
 
-# ---------------------------------------------------------------
-# SUPERVISOR SYSTEM PROMPT — Unit 4: Multi-Agent routing
-# ---------------------------------------------------------------
+# =====================================================================
+# SUPERVISOR SYSTEM PROMPT
+# =====================================================================
 SUPERVISOR_PROMPT = """\
-You are a Supervisor Agent that classifies incoming weather-related questions
-and routes them to the correct specialist sub-agent.
+You are the AgriShield Supervisor Agent.
+Classify the incoming farmer query and route it to the exact specialist sub-agent.
 
-Available sub-agents:
-  1. weather_agent   → Plain weather forecast / rain queries
-     Examples: "Will it rain?", "What is the weather tomorrow?", "Umbrella needed?"
-  2. outfit_advisor  → Clothing and outfit recommendations
-     Examples: "What should I wear?", "What clothes for tomorrow?", "Dress code for rain?"
-  3. travel_planner  → Travel suitability and outdoor activity planning
-     Examples: "Good day to travel?", "Can I go to Goa?", "Is it safe to drive to Lonavala?"
+Sub-Agents:
+1. irrigation_sentinel
+   - Keywords: water, irrigate, pump, soil moisture, drought, evapotranspiration, dry soil, drip, borewell, electricity.
+2. pest_disease_forecaster
+   - Keywords: pests, insects, fungus, blight, rust, mildew, whitefly, aphids, worms, rot, disease, spores, infection.
+3. harvest_spray_advisor
+   - Keywords: spray, pesticide, fungicide, herbicide, fertilizer, wind drift, rain wash, harvest, cutting, threshing, storage.
 
-IMPORTANT: You must respond with ONLY ONE of these exact strings (no extra text):
-  weather_agent
-  outfit_advisor
-  travel_planner
+If the question is unrelated to agriculture, farming, crops, irrigation, pests, field spraying, harvest, soil, or rural weather (e.g. coding, math, trivia, movies, sports, history, politics, jokes), you MUST reply with:
+   off_topic
 
-If the question is off-topic (not weather-related), respond with:
-  off_topic
+Respond with ONLY ONE token from:
+irrigation_sentinel
+pest_disease_forecaster
+harvest_spray_advisor
+off_topic
 """
 
-# ---------------------------------------------------------------
-# LLM Setup (shared model)
-# ---------------------------------------------------------------
+# Shared LLM
 llm = ChatGroq(
     model="openai/gpt-oss-120b",
     api_key=os.getenv("GROQ_API_KEY"),
-    temperature=0.3
+    temperature=0.25
 )
 
-tools_list = [get_weather_forecast]
+tools_list = [get_agricultural_weather_data]
 llm_with_tools = llm.bind_tools(tools_list)
-
-# ToolNode handles actually running whichever tool the LLM picked
 tool_node = ToolNode(tools_list)
 
 
-# ---------------------------------------------------------------
-# SUPERVISOR NODE — Unit 4: decides which sub-agent handles query
-# ---------------------------------------------------------------
+# =====================================================================
+# NODE 1: SUPERVISOR NODE
+# =====================================================================
 def supervisor_node(state: AgentState) -> dict:
-    """
-    Reads the latest user message and decides which sub-agent to route to.
-    Sets state['active_agent'] accordingly.
-    """
-    user_msg = state["messages"][-1].content
+    """Classifies user intent and routes to the appropriate specialist agent."""
+    messages = state["messages"]
+    user_msg = ""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            user_msg = msg.content
+            break
+
+    profile = get_farm_profile()
 
     response = llm.invoke([
         SystemMessage(content=SUPERVISOR_PROMPT),
-        {"role": "user", "content": user_msg}
+        HumanMessage(content=f"Active Farm Profile: Location={profile.get('location')}, Crop={profile.get('crop')}\n\nFarmer Query: {user_msg}")
     ])
 
     routing = response.content.strip().lower()
+    valid_routes = {"irrigation_sentinel", "pest_disease_forecaster", "harvest_spray_advisor", "off_topic"}
 
-    # safety: default to weather_agent if unexpected output
-    valid_routes = {"weather_agent", "outfit_advisor", "travel_planner", "off_topic"}
     if routing not in valid_routes:
-        routing = "weather_agent"
+        # Default fallback heuristic
+        q_lower = user_msg.lower()
+        if any(w in q_lower for w in ["water", "pump", "irrigate", "dry"]):
+            routing = "irrigation_sentinel"
+        elif any(w in q_lower for w in ["pest", "disease", "blight", "fungus", "worm"]):
+            routing = "pest_disease_forecaster"
+        elif any(w in q_lower for w in ["spray", "harvest", "cut", "wind"]):
+            routing = "harvest_spray_advisor"
+        else:
+            routing = "off_topic"
 
-    return {"active_agent": routing}
+    return {
+        "active_agent": routing,
+        "crop_name": profile.get("crop", "Cotton"),
+        "growth_stage": profile.get("growth_stage", "Flowering"),
+        "farm_location": profile.get("location", "Pune")
+    }
 
 
-# ---------------------------------------------------------------
-# LLM NODE — brain node (reads memory context + system prompt)
-# Unit 3: memory context is injected here
-# ---------------------------------------------------------------
+# =====================================================================
+# NODE 2: LLM NODE (Brain + Tool Caller)
+# =====================================================================
 def llm_node(state: AgentState) -> dict:
-    """
-    The main reasoning node. Injects long-term memory into system prompt
-    so the LLM is aware of past queries.
-    """
-    messages = state["messages"]
-    active_agent = state.get("active_agent", "weather_agent")
+    """Reasoning node that reads Farm Profile memory and calls the agricultural tool."""
+    active_agent = state.get("active_agent", "irrigation_sentinel")
 
-    # ── Unit 3: Long-Term Memory injection ───────────────────────
-    memory_ctx = get_memory_context()
-    memory_section = f"""
-── Long-Term Memory (User History) ──
-{memory_ctx}
-──────────────────────────────────────
-"""
-
-    # Off-topic handling — don't even call the tool
+    # Fast guardrail rejection for off-topic queries
     if active_agent == "off_topic":
         refusal = AIMessage(
-            content="Sorry, I can only answer weather-related questions! 🌤️ Please ask me something about the weather."
+            content="🌱 AgriShield AI is dedicated exclusively to precision agriculture and farm advisory. Please ask an agronomic or crop-weather question!"
         )
         return {"messages": [refusal]}
 
-    full_prompt = BASE_SYSTEM_PROMPT + memory_section
+    memory_ctx = get_memory_context()
+    full_prompt = f"{BASE_SYSTEM_PROMPT}\n\n── Farm Profile & Long-Term Memory ──\n{memory_ctx}\n────────────────────────────────────────"
 
-    full_messages = [SystemMessage(content=full_prompt)] + messages
+    full_messages = [SystemMessage(content=full_prompt)] + list(state["messages"])
     response = llm_with_tools.invoke(full_messages)
     return {"messages": [response]}
 
 
-# ---------------------------------------------------------------
-# SUB-AGENT DISPATCH NODE — Unit 4
-# Called AFTER tool_node has fetched weather data.
-# Routes to the correct sub-agent for a specialized response.
-# ---------------------------------------------------------------
+# =====================================================================
+# NODE 3: SUB-AGENT DISPATCH NODE
+# =====================================================================
 def sub_agent_dispatch_node(state: AgentState) -> dict:
-    """
-    After weather data has been fetched by the tool node, this node:
-    1. Extracts the weather data from the last ToolMessage
-    2. Calls the appropriate sub-agent
-    3. Returns the sub-agent's answer as an AIMessage
-    Also saves the city + recommendation to long-term memory (Unit 3).
-    """
-    from langchain_core.messages import ToolMessage
+    """Dispatches fetched agricultural telemetry to the designated specialist sub-agent."""
+    active_agent = state.get("active_agent", "irrigation_sentinel")
+    crop_name = state.get("crop_name", "Cotton")
+    growth_stage = state.get("growth_stage", "Flowering")
+    location = state.get("farm_location", "Pune")
 
-    active_agent = state.get("active_agent", "weather_agent")
-    user_query   = ""
+    user_query = ""
     weather_data = ""
 
-    # find user query and weather tool result from messages
     for msg in state["messages"]:
-        from langchain_core.messages import HumanMessage
         if isinstance(msg, HumanMessage):
             user_query = msg.content
         if isinstance(msg, ToolMessage):
             weather_data = msg.content
 
-    # if no weather data found (shouldn't happen, but safety check)
     if not weather_data:
-        weather_data = "No weather data available."
+        weather_data = f"Weather telemetry unavailable for {location}."
 
-    # Call the appropriate sub-agent
-    agent_fn = SUB_AGENTS.get(active_agent, SUB_AGENTS["weather_agent"])
-    answer   = agent_fn(user_query, weather_data)
+    farm_context = f"Location: {location} | Crop: {crop_name} | Stage: {growth_stage}"
 
-    # ── Unit 3: Save to Long-Term Memory ─────────────────────────
-    # Extract city name from weather_data (first line usually has it)
-    city_match = re.search(r"forecast for (.+?):", weather_data)
-    if city_match:
-        city = city_match.group(1).strip()
-        remember_city(city, answer[:200])
+    # Call the routed specialist
+    agent_fn = SUB_AGENTS.get(active_agent, SUB_AGENTS["irrigation_sentinel"])
+    draft_advice = agent_fn(user_query, farm_context, weather_data)
 
     return {
-        "messages": [AIMessage(content=answer)],
         "weather_data": weather_data,
+        "critic_notes": draft_advice
+    }
+
+
+# =====================================================================
+# NODE 4: CRITIC & REFLECTION NODE (Evaluator-Optimizer)
+# =====================================================================
+def critic_node(state: AgentState) -> dict:
+    """
+    Evaluator-Optimizer Reflection Step:
+    Audits the specialist's draft advice against environmental thresholds,
+    assigns the Crop Threat Index, and persists the advisory to Long-Term Memory.
+    """
+    draft_advice = state.get("critic_notes", "")
+    weather_data = state.get("weather_data", "")
+    crop_name = state.get("crop_name", "Cotton")
+    location = state.get("farm_location", "Pune")
+    active_agent = state.get("active_agent", "irrigation_sentinel")
+
+    # User query extraction
+    user_query = ""
+    for msg in reversed(state["messages"]):
+        if isinstance(msg, HumanMessage):
+            user_query = msg.content
+            break
+
+    # Perform reflection evaluation
+    final_response = safety_risk_critic(draft_advice, weather_data, crop_name)
+
+    # Determine threat level from response
+    threat_level = "MODERATE"
+    if "SEVERE" in final_response:
+        threat_level = "SEVERE"
+    elif "LOW" in final_response:
+        threat_level = "LOW"
+
+    # Persist advisory to Long-Term Memory
+    remember_agri_advisory(
+        location=location,
+        crop=crop_name,
+        agent_name=active_agent,
+        query=user_query,
+        advice_summary=draft_advice[:200],
+        threat_level=threat_level
+    )
+
+    return {
+        "messages": [AIMessage(content=final_response)],
+        "threat_level": threat_level
     }

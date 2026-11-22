@@ -2,24 +2,30 @@ from typing import TypedDict, Annotated, Optional
 from langchain_core.messages import BaseMessage
 import operator
 
-# AgentState is basically the "memory" of our agent
-# every node in the graph reads from this and writes back to this
-# the 'messages' list keeps growing as the agent takes more steps
-
 class AgentState(TypedDict):
-    # operator.add means new messages get ADDED to the list (not replaced)
+    """
+    AgriShield AI AgentState.
+    Tracks conversation messages, active specialist sub-agent,
+    farm & crop profile context, environmental sensor data, and risk critique.
+    """
+    # LangGraph message history (short-term memory via operator.add)
     messages: Annotated[list[BaseMessage], operator.add]
 
-    # ── Unit 3 Extension: Memory ──────────────────────────────────────────
-    # Injected long-term memory summary (from memory.json) so the LLM
-    # can reference what the user has asked about before.
+    # Injected long-term memory (Farm Profile & Advisory History from memory.json)
     memory_context: Optional[str]
 
-    # ── Unit 4 Extension: Multi-Agent ────────────────────────────────────
-    # Tracks which specialized sub-agent handled the current query.
-    # Used by the Streamlit UI to show the active agent badge.
-    active_agent: Optional[str]   # e.g. "weather_agent" | "outfit_advisor" | "travel_planner"
+    # Active specialist sub-agent routed by Supervisor:
+    # "irrigation_sentinel" | "pest_disease_forecaster" | "harvest_spray_advisor" | "off_topic"
+    active_agent: Optional[str]
 
-    # Stores the raw weather data fetched during this turn
-    # so sub-agents can access it without calling the tool again.
+    # Farm and crop contextual attributes
+    crop_name: Optional[str]
+    growth_stage: Optional[str]
+    farm_location: Optional[str]
+
+    # Raw agricultural & meteorological telemetry from Open-Meteo
     weather_data: Optional[str]
+
+    # Reflection / Critic audit score and safety notes
+    threat_level: Optional[str]  # e.g., "LOW", "MODERATE", "SEVERE"
+    critic_notes: Optional[str]
