@@ -1,5 +1,10 @@
 # 🌾 AgriShield AI — Autonomous Climate & Precision Agriculture Sentinel
 
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=flat&logo=github)](https://github.com/PanthDhoriyani/Weatehr-Planning-Agent)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://github.com/PanthDhoriyani/Weatehr-Planning-Agent)
+
+🔗 **Official Repository:** [https://github.com/PanthDhoriyani/Weatehr-Planning-Agent](https://github.com/PanthDhoriyani/Weatehr-Planning-Agent)
+
 An enterprise-grade Agentic AI system built with **LangGraph + LangChain + Groq + Open-Meteo Agricultural API** that provides real-time, autonomous agronomic decisions:
 > *"Should I run my borewell pump today, or will tomorrow's rain save groundwater and electricity?"*  
 > *"Will high atmospheric humidity cause fungal blight on my tomatoes?"*  
@@ -20,29 +25,37 @@ An enterprise-grade Agentic AI system built with **LangGraph + LangChain + Groq 
 
 ## 🚀 How to Run
 
-### 1. Activate Virtual Environment
+### 1. Clone the Repository
+```bash
+git clone https://github.com/PanthDhoriyani/Weatehr-Planning-Agent.git
+cd Weatehr-Planning-Agent
+```
+
+### 2. Activate Virtual Environment
 ```bash
 # Windows
 venv\Scripts\activate
+# Linux / macOS
+source venv/bin/activate
 ```
 
-### 2. Verify Dependencies
+### 3. Verify Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure API Key
+### 4. Configure API Key
 Ensure `.env` contains your Groq API key:
 ```env
 GROQ_API_KEY=your_groq_key_here
 ```
 
-### 4. Run the Streamlit Dashboard (Recommended for Jury Demo)
+### 5. Run the Streamlit Dashboard (Recommended for Jury Demo)
 ```bash
 python -m streamlit run app.py
 ```
 
-### 5. Run in Terminal (CLI Mode)
+### 6. Run in Terminal (CLI Mode)
 ```bash
 python main.py
 ```
